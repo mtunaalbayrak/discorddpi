@@ -3,6 +3,7 @@
 *.pdb
 bin/
 bin-engine/
+bin-tray/
 **/logs/
 obj/
 .vs/

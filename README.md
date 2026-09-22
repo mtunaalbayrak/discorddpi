@@ -96,3 +96,6 @@ DoH protokolü: https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-ht
 WinDivert belgeleri: https://reqrypt.org/windivert-doc.html
 
 Üçüncü taraf lisans bilgisi: `THIRD-PARTY-NOTICES.md`.
+# Arka planda kullanım
+
+Masaüstü arayüzünde X veya küçültme düğmesi pencereyi bildirim alanına gizler; çalışan motoru durdurmaz. Saatin yanındaki Discord DPI simgesine çift tıklayarak pencereyi açabilirsin. Simgenin sağ tık menüsündeki **Tamamen çık**, motoru durdurup uygulamayı kapatır. Simge Windows'un gizli simgeler okunun altında olabilir. Motor yine arayüzden başlatılır; Windows açılışında otomatik başlatma eklenmedi.

@@ -32,6 +32,9 @@ public sealed class ObserverWindow : Form
     private Process worker;
     private bool stopping;
     private bool closing;
+    private bool exitRequested;
+    private readonly NotifyIcon tray = new NotifyIcon();
+    private readonly ContextMenuStrip trayMenu = new ContextMenuStrip();
     private int eventCount;
     private int ticks;
     private SessionLog session;
@@ -87,7 +90,7 @@ public sealed class ObserverWindow : Form
         events.Columns.Add("Saat", 88);
         events.Columns.Add("Discord bağlantı olayı", 780);
         Controls.Add(events);
-        var hint = LabelAt("Motor testi: GoodbyeDPI’ı durdur → Motoru dene → Discord’u tamamen kapatıp aç.\nSonucu görünce Durdur’a bas. Tanılama kaydı otomatik saklanır; satırları ezberlemene gerek yok.", 30, 551, 900, 46);
+        var hint = LabelAt("X veya küçültme düğmesi uygulamayı saatin yanına gizler; çalışan motor devam eder.\nYeniden açmak veya tamamen çıkmak için saatin yanındaki Discord DPI simgesini kullan.", 30, 551, 900, 46);
         hint.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
         logStatus.SetBounds(30, 609, 900, 25);
         logStatus.Text = "Kayıtlar bu bilgisayarda logs klasöründe tutulur; GitHub’a gönderilmez.";
@@ -100,15 +103,36 @@ public sealed class ObserverWindow : Form
         RefreshDiscord();
         UpdateCount();
         timer.Start();
+        tray.Icon = SystemIcons.Application;
+        tray.Text = "Discord DPI — hazır";
+        trayMenu.Items.Add("Pencereyi aç", null, delegate { RestoreWindow(); });
+        trayMenu.Items.Add("Tamamen çık", null, delegate { exitRequested = true; Close(); });
+        tray.ContextMenuStrip = trayMenu;
+        tray.DoubleClick += delegate { RestoreWindow(); };
+        tray.Visible = true;
+        Resize += delegate { if (WindowState == FormWindowState.Minimized) Hide(); };
         FormClosing += async delegate(object sender, FormClosingEventArgs e)
         {
+            if (e.CloseReason == CloseReason.UserClosing && !exitRequested)
+            {
+                e.Cancel = true;
+                Hide();
+                return;
+            }
             if (worker == null) return;
             e.Cancel = true;
             if (closing) return;
             closing = true;
             await StopObserver();
         };
-        FormClosed += delegate { timer.Dispose(); if (session != null) session.Dispose(); };
+        FormClosed += delegate { timer.Dispose(); tray.Visible = false; tray.Dispose(); trayMenu.Dispose(); if (session != null) session.Dispose(); };
+    }
+
+    private void RestoreWindow()
+    {
+        Show();
+        WindowState = FormWindowState.Normal;
+        Activate();
     }
 
     private Label LabelAt(string text, int x, int y, int width, int height)
@@ -168,6 +192,7 @@ public sealed class ObserverWindow : Form
             engine.Enabled = false;
             stop.Enabled = true;
             state.Text = experimental ? "Deneysel motor başlatılıyor…" : "Gözlemci başlatılıyor…";
+            tray.Text = experimental ? "Discord DPI — motor çalışıyor" : "Discord DPI — izleme açık";
         }
         catch (Exception ex)
         {
@@ -206,6 +231,7 @@ public sealed class ObserverWindow : Form
             if (session != null) { session.Write("Worker exit=" + worker.ExitCode); session.Dispose(); }
             if (!state.Text.StartsWith("HATA:")) state.Text = "Gözlemci sonlandı (kod " + worker.ExitCode + ").";
             worker.Dispose(); worker = null;
+            tray.Text = "Discord DPI — durdu";
             start.Enabled = engine.Enabled = true; stop.Enabled = false;
         }
     }
@@ -237,6 +263,7 @@ public sealed class ObserverWindow : Form
                 active.WaitForExit();
                 if (session != null) { session.Write("Worker exit=" + active.ExitCode); session.Dispose(); }
                 active.Dispose(); worker = null;
+                tray.Text = "Discord DPI — durdu";
             }
             stopping = false;
             start.Enabled = worker == null;
