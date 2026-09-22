@@ -9,7 +9,12 @@ using System.Threading;
 internal sealed class ScopedEngine : IDisposable
 {
     private readonly Dictionary<ulong, Connection> connections = new Dictionary<ulong, Connection>();
+    private readonly object connectionsGate = new object();
     internal void OnFlow(Native.Address flow)
+    {
+        lock (connectionsGate) OnFlowLocked(flow);
+    }
+    private void OnFlowLocked(Native.Address flow)
     {
         Connection old;
         if (flow.Event == 2)
@@ -143,7 +148,7 @@ internal sealed class ScopedEngine : IDisposable
                     attempted = true;
                     Stop();
                 }
-                if (!attempted) Log("SÜRE DOLDU: İlk veri yakalanamadı, port=" + owner.LocalPort);
+                if (!attempted) Log("VERİ YAKALANMADI: Bağlantı kapandı veya bekleme sınırı doldu, port=" + owner.LocalPort);
             }
             catch (Exception ex) { Log("BAĞLANTI İŞLEYİCİ HATASI: " + ex.Message); }
             finally

@@ -2,14 +2,36 @@ using System;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 internal static class NetworkDiagnostics
 {
     internal static Task Run()
     {
-        Log("BAŞLANGIÇ: DNS ve TCP/443 kontrolü; TLS veya Discord giriş testi değildir.");
-        return Task.WhenAll(Check("discord.com"), Check("gateway.discord.gg"), Check("updates.discord.com"));
+        Log("BAŞLANGIÇ: DNS, TCP/443 ve doğrudan güncelleme HTTPS kontrolü; Discord giriş testi değildir.");
+        return Task.WhenAll(Check("discord.com"), Check("gateway.discord.gg"), Check("updates.discord.com"), CheckUpdateHttps());
+    }
+    private static async Task CheckUpdateHttps()
+    {
+        Log("HTTPS BAŞLANGIÇ: updates.discord.com; doğrudan tanılama, Discord motor filtresinin dışında.");
+        try
+        {
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+            using (var client = new HttpClient(new HttpClientHandler { UseProxy = false, AllowAutoRedirect = false }))
+            {
+                client.Timeout = TimeSpan.FromSeconds(8);
+                using (var request = new HttpRequestMessage(HttpMethod.Head, "https://updates.discord.com/"))
+                using (var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false))
+                    Log("HTTPS YANITI: updates.discord.com HTTP=" + (int)response.StatusCode +
+                        "; TLS doğrulandı. 4xx/5xx dahil bu sonuç güncelleme indirme başarısı değildir.");
+            }
+        }
+        catch (Exception ex)
+        {
+            for (int i = 0; ex != null && i < 4; i++, ex = ex.InnerException)
+                Log("HTTPS HATASI: " + ex.GetType().Name + " " + ex.Message);
+        }
     }
     private static void Log(string text) { Console.WriteLine("{0:HH:mm:ss} TANI {1}", DateTime.Now, text); }
     private static void ObserveFailure(Task task)

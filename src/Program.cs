@@ -93,10 +93,16 @@ internal static class Program
             if (command == "stop" || command == null) StopCapture();
         });
         var engine = experimental ? new ScopedEngine() : null;
+        EarlyConnections early = null;
         DiscordDns dnsRedirector = null;
         Task diagnostics = null;
         try
         {
+            if (engine != null)
+            {
+                try { early = new EarlyConnections(engine); Console.WriteLine("Erken Discord bağlantı izlemesi açık."); }
+                catch (Exception ex) { Console.WriteLine("Erken izleme açılamadı; FLOW yöntemi sürüyor: " + ex.Message); }
+            }
             if (experimental) dnsRedirector = new DiscordDns(true);
             Console.WriteLine(experimental ? "Deneysel motor açık — Discord DNS + TLS deneniyor. Erişim henüz doğrulanmadı." : "Yeni Discord bağlantıları gösteriliyor. TCP/UDP, IPv4/IPv6. Paket değiştirme yok.");
             Console.WriteLine("Discord'u şimdi açabilir veya yeni bağlantı oluşturabilirsin. Çıkış: Ctrl+C.");
@@ -128,6 +134,7 @@ internal static class Program
         {
             Console.CancelKeyPress -= Cancel;
             lock (HandleLock) { Native.WinDivertClose(handle); handle = new IntPtr(-1); }
+            if (early != null) early.Dispose();
             if (engine != null) engine.Dispose();
             if (dnsRedirector != null) dnsRedirector.Dispose();
             if (diagnostics != null) diagnostics.Wait(7500);
@@ -149,6 +156,8 @@ internal static class Program
         uint position;
         if (!Native.WinDivertHelperCompileFilter(Filter, Native.FlowLayer, IntPtr.Zero, 0, out error, out position))
             throw new InvalidOperationException("Filtre hatası: " + Marshal.PtrToStringAnsi(error));
+        if (!Native.WinDivertHelperCompileFilter(EarlyConnections.Filter, 3, IntPtr.Zero, 0, out error, out position))
+            throw new InvalidOperationException("Erken bağlantı filtresi hatası: " + Marshal.PtrToStringAnsi(error));
         string loopback = Native.Format(1, 0, 0, 0);
         if (loopback != "::1") throw new InvalidOperationException("Adres dönüşümü hatası: " + loopback);
         Console.WriteLine("WinDivert DLL, FLOW filtresi ve IPv6 dönüşümü doğrulandı. Sürücü açılmadı.");
