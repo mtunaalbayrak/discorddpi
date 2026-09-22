@@ -1,0 +1,8 @@
+# Derleme çıktıları; kaynak koddan yeniden oluşturulur.
+*.exe
+*.pdb
+bin/
+obj/
+.vs/
+*.user
+work/
