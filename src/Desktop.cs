@@ -34,6 +34,8 @@ public sealed class ObserverWindow : Form
     private bool closing;
     private int eventCount;
     private int ticks;
+    private SessionLog session;
+    private readonly Label logStatus = new Label();
 
     public ObserverWindow()
     {
@@ -85,11 +87,13 @@ public sealed class ObserverWindow : Form
         events.Columns.Add("Saat", 88);
         events.Columns.Add("Discord bağlantı olayı", 780);
         Controls.Add(events);
-        var hint = LabelAt("Motor testi: GoodbyeDPI’ı durdur → Motoru dene → Discord’u tamamen kapatıp aç.\nBÖLÜNDÜ satırı paket işlemini gösterir; mesaj, ses ve yayın erişimini ayrıca denemeliyiz.", 30, 551, 900, 46);
+        var hint = LabelAt("Motor testi: GoodbyeDPI’ı durdur → Motoru dene → Discord’u tamamen kapatıp aç.\nSonucu görünce Durdur’a bas. Tanılama kaydı otomatik saklanır; satırları ezberlemene gerek yok.", 30, 551, 900, 46);
         hint.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        var note = LabelAt("Gözlemde GoodbyeDPI açık kalabilir • Motor yalnızca seçili Discord TLS bağlantılarını işler", 30, 609, 900, 25);
-        note.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        note.ForeColor = Color.FromArgb(153, 167, 195);
+        logStatus.SetBounds(30, 609, 900, 25);
+        logStatus.Text = "Kayıtlar bu bilgisayarda logs klasöründe tutulur; GitHub’a gönderilmez.";
+        logStatus.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        logStatus.ForeColor = Color.FromArgb(153, 167, 195);
+        Controls.Add(logStatus);
 
         timer.Interval = 250;
         timer.Tick += delegate { Drain(); if (++ticks % 8 == 0) RefreshDiscord(); };
@@ -104,7 +108,7 @@ public sealed class ObserverWindow : Form
             closing = true;
             await StopObserver();
         };
-        FormClosed += delegate { timer.Dispose(); };
+        FormClosed += delegate { timer.Dispose(); if (session != null) session.Dispose(); };
     }
 
     private Label LabelAt(string text, int x, int y, int width, int height)
@@ -142,6 +146,13 @@ public sealed class ObserverWindow : Form
         if (worker != null || stopping) return;
         try
         {
+            if (session != null) session.Dispose();
+            session = new SessionLog(Path.Combine(Path.GetDirectoryName(typeof(ObserverWindow).Assembly.Location), "logs"));
+            string oldLine;
+            while (pending.TryDequeue(out oldLine)) { }
+            session.Write("Discord DPI diagnostic build 2026-09-22. Mode=" + (experimental ? "engine" : "observe") + " Started=" + DateTime.Now.ToString("O"));
+            session.Write(discord.Text);
+            logStatus.Text = "Kayıt: logs\\" + Path.GetFileName(session.FilePath) + "  •  yalnızca bu bilgisayarda";
             var info = new ProcessStartInfo(Path.Combine(Path.GetDirectoryName(typeof(ObserverWindow).Assembly.Location), "DiscordDpi.exe"), experimental ? "--engine" : "--observe");
             info.UseShellExecute = false;
             info.CreateNoWindow = true;
@@ -162,15 +173,18 @@ public sealed class ObserverWindow : Form
         {
             if (worker != null) { worker.Dispose(); worker = null; }
             state.Text = "Başlatılamadı: " + ex.Message;
+            if (session != null) { session.Write(state.Text); session.Dispose(); }
         }
     }
     private void Enqueue(string line)
     {
         if (line == null) return;
+        if (session != null) session.Write(line);
         if (pending.Count < 1000) pending.Enqueue(line);
     }
     private void Drain()
     {
+        if (session != null && session.Error != null) logStatus.Text = "Kayıt yazılamadı: " + session.Error;
         string line;
         for (int i = 0; i < 100 && pending.TryDequeue(out line); i++)
         {
@@ -189,6 +203,7 @@ public sealed class ObserverWindow : Form
         if (worker != null && !stopping && worker.HasExited)
         {
             worker.WaitForExit();
+            if (session != null) { session.Write("Worker exit=" + worker.ExitCode); session.Dispose(); }
             if (!state.Text.StartsWith("HATA:")) state.Text = "Gözlemci sonlandı (kod " + worker.ExitCode + ").";
             worker.Dispose(); worker = null;
             start.Enabled = engine.Enabled = true; stop.Enabled = false;
@@ -217,7 +232,12 @@ public sealed class ObserverWindow : Form
         catch (Exception ex) { state.Text = "Durdurma hatası: " + ex.Message; }
         finally
         {
-            if (active.HasExited) { active.Dispose(); worker = null; }
+            if (active.HasExited)
+            {
+                active.WaitForExit();
+                if (session != null) { session.Write("Worker exit=" + active.ExitCode); session.Dispose(); }
+                active.Dispose(); worker = null;
+            }
             stopping = false;
             start.Enabled = worker == null;
             engine.Enabled = worker == null;

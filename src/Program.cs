@@ -20,6 +20,7 @@ internal static class Program
         {
             if (args.Length == 1 && args[0] == "--self-test") return SelfTest();
             if (args.Length == 1 && args[0] == "--native-check") return NativeCheck();
+            if (args.Length == 1 && args[0] == "--diagnose") { NetworkDiagnostics.Run().GetAwaiter().GetResult(); return 0; }
             if (args.Length == 1 && args[0] == "--observe") return Observe(false);
             if (args.Length == 1 && args[0] == "--engine")
             {
@@ -81,10 +82,12 @@ internal static class Program
             if (command == "stop" || command == null) StopCapture();
         });
         var engine = experimental ? new ScopedEngine() : null;
+        Task diagnostics = null;
         try
         {
             Console.WriteLine(experimental ? "Deneysel motor açık — Discord TLS bölme deneniyor. Erişim henüz doğrulanmadı." : "Yeni Discord bağlantıları gösteriliyor. TCP/UDP, IPv4/IPv6. Paket değiştirme yok.");
             Console.WriteLine("Discord'u şimdi açabilir veya yeni bağlantı oluşturabilirsin. Çıkış: Ctrl+C.");
+            if (experimental) diagnostics = NetworkDiagnostics.Run();
             while (!stopping)
             {
                 Native.Address address;
@@ -112,6 +115,7 @@ internal static class Program
             Console.CancelKeyPress -= Cancel;
             lock (HandleLock) { Native.WinDivertClose(handle); handle = new IntPtr(-1); }
             if (engine != null) engine.Dispose();
+            if (diagnostics != null) diagnostics.Wait(7500);
         }
     }
     private static void Cancel(object sender, ConsoleCancelEventArgs args)

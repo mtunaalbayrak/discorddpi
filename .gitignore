@@ -3,6 +3,7 @@
 *.pdb
 bin/
 bin-engine/
+**/logs/
 obj/
 .vs/
 *.user

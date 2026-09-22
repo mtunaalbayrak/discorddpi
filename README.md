@@ -14,7 +14,11 @@ WinDivert FLOW katmanı `SNIFF | RECV_ONLY` bayraklarıyla kullanılır. Program
 
 ## Masaüstü ekranı
 
-`bin/DiscordDpiDesktop.exe` dosyasını açıp Windows yönetici iznini onaylayın. Pencere Discord işlem sayısını gösterir. **İzlemeyi başlat** yeni bağlantı olaylarını listeler; **Durdur** yalnızca kendi gözlemci sürecimizi sonlandırır. Pencereyi kapatmak da gözlemi durdurur. Liste en son 500 olayı tutar, diske trafik kaydı yazmaz.
+`bin/DiscordDpiDesktop.exe` dosyasını açıp Windows yönetici iznini onaylayın. Pencere Discord işlem sayısını gösterir. **İzlemeyi başlat** yeni bağlantı olaylarını listeler; **Durdur** yalnızca kendi gözlemci sürecimizi sonlandırır. Pencereyi kapatmak da gözlemi durdurur. Liste en son 500 olayı tutar.
+
+Her denemede uygulamanın yanındaki `logs/session-*.txt` dosyasına tanılama kaydı yazılır. Kayıtlar zaman, işlem sayısı/PID, bağlantı IP/portları, işlenen Discord alan adı ve hata bilgisi içerir; mesajlar, ses veya paket içerikleri kaydedilmez. Oturum başına yaklaşık 250.000 karakterle sınırlıdır; eski kayıtlar gerektiğinde kullanıcı tarafından silinebilir. Dosyalar Git'e alınmaz ve kendiliğinden internete gönderilmez.
+
+Motor başlayınca discord.com, gateway.discord.gg ve updates.discord.com için sistem DNS çözümü ve tek bir adrese TCP/443 erişimi ayrıca kontrol edilir. Bunlar motor sürecinden yapılan tanılama bağlantılarıdır; TLS, Discord oturumu veya tüm IPv4/IPv6 adresleri için başarı testi değildir. Sürücü açmadan aynı kontrol `DiscordDpi.exe --diagnose` ile yapılabilir.
 
 GoodbyeDPI gözlem modunda açık kalabilir. Deneysel motor, GoodbyeDPI çalışırken başlamaz; onu kendiliğinden kapatmaz. Bu sadece eşzamanlı müdahaleyi önlemek için bir süreç kontrolüdür, başka bir motorun kodu veya çalıştırılabilir dosyası kullanılmaz.
 
@@ -54,7 +58,7 @@ Açık olan eski arayüzün dosyalarını değiştirmeden derlemek için iki bet
 - Standart `%LOCALAPPDATA%\Discord`, `DiscordPTB`, `DiscordCanary` kurulumları tanınır. İşlem adı ve kurulum yolu birlikte kontrol edilir; bu kontrol yayıncı/imza doğrulaması değildir.
 - Tarayıcıdaki Discord, özel kurulum yolları ve güncelleyici henüz kapsamda değildir.
 - Kimliği okunamayan veya kapanmış işlemler atlanır. PID yeniden kullanımını elemek için olay ve işlem başlangıç zamanları karşılaştırılır; bu gözlem kodu henüz üretim düzeyinde bir güvenlik sınırı değildir.
-- Yalnızca tanınan Discord işlemlerinin bağlantı bilgileri ekrana yazılır; kalıcı trafik kaydı tutulmaz.
+- Tanınan Discord işlemlerinin bağlantı bilgileri ve programın tanılama sonuçları ekrana/yerel tanılama kaydına yazılır. Paket içerikleri tutulmaz.
 - Canlı gözlem yönetici izni ister; derleme, işlem kontrolü ve öz test istemez.
 - Paket yakalama tüm tarayıcı trafiğine uygulanmaz. Her ağ filtresi tanınmış bir Discord bağlantısının kaynak/hedef IP ve portlarına özeldir; bağlantı kimliği işlem katmanında, alan adı TLS katmanında kontrol edilir.
 - Aynı anda en fazla 32 kısa ömürlü yakalayıcı açılır. İlk veriden sonra veya 8 saniye sonunda yakalama sonlandırılır; durdurmada kuyruktaki paketler geri gönderildikten sonra handle kapanır. Gönderim hataları TCP yeniden iletimi gerektirebilir.
@@ -74,7 +78,7 @@ PID çalışan programın kimliğidir. Yerel IP/port, uzak IP/port ve TCP/UDP bi
 
 ## Doğrulama
 
-Gözlem modunda kullanıcının sesli kanaldan çıkıp tekrar girmesiyle bağlantı olayları görüldü. Deneysel motor için derleme, 10 işlem/bellek düzeni testi, 452 paket doğrulaması ve 5000 bozuk/kısmi girdi denemesi geçti. Bunlar sürücü açmadan yapılan testlerdir. Canlı paket gönderme, kapatma sırasında kuyruk boşaltma ve engel aşma henüz kullanıcı bağlantısında doğrulanmadı.
+Gözlem modunda kullanıcının sesli kanaldan çıkıp tekrar girmesiyle bağlantı olayları görüldü. Deneysel motor için derleme, 10 işlem/bellek düzeni testi, 452 paket doğrulaması ve 5000 bozuk/kısmi girdi denemesi geçti. İlk kullanıcı denemesinde Discord'a giriş sağlanamadı; o denemede paket işleme satırları kaydedilmediğinden neden henüz belirlenemedi. Tanılama kayıtları bu ayrımı yapabilmek için eklendi. Canlı paket gönderme ve kapatma sırasında kuyruk boşaltma ayrıca doğrulanmalıdır.
 
 WinDivert belgeleri: https://reqrypt.org/windivert-doc.html
 
