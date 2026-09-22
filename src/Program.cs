@@ -21,6 +21,17 @@ internal static class Program
             if (args.Length == 1 && args[0] == "--self-test") return SelfTest();
             if (args.Length == 1 && args[0] == "--native-check") return NativeCheck();
             if (args.Length == 1 && args[0] == "--diagnose") { NetworkDiagnostics.Run().GetAwaiter().GetResult(); return 0; }
+            if (args.Length == 1 && args[0] == "--dns-test") return DnsTests.Run();
+            if (args.Length == 1 && args[0] == "--doh-check")
+            {
+                using (var dns = new DiscordDns(false))
+                    foreach (string host in new[] { "discord.com", "gateway.discord.gg", "updates.discord.com" })
+                    {
+                        byte[] reply = dns.Resolve(DnsWire.Query(host, 1)).GetAwaiter().GetResult();
+                        Console.WriteLine("DoH " + host + " rcode=" + (reply[3] & 15) + " cevap=" + DnsWire.U16(reply, 6));
+                    }
+                return 0;
+            }
             if (args.Length == 1 && args[0] == "--observe") return Observe(false);
             if (args.Length == 1 && args[0] == "--engine")
             {
@@ -82,10 +93,12 @@ internal static class Program
             if (command == "stop" || command == null) StopCapture();
         });
         var engine = experimental ? new ScopedEngine() : null;
+        DiscordDns dnsRedirector = null;
         Task diagnostics = null;
         try
         {
-            Console.WriteLine(experimental ? "Deneysel motor açık — Discord TLS bölme deneniyor. Erişim henüz doğrulanmadı." : "Yeni Discord bağlantıları gösteriliyor. TCP/UDP, IPv4/IPv6. Paket değiştirme yok.");
+            if (experimental) dnsRedirector = new DiscordDns(true);
+            Console.WriteLine(experimental ? "Deneysel motor açık — Discord DNS + TLS deneniyor. Erişim henüz doğrulanmadı." : "Yeni Discord bağlantıları gösteriliyor. TCP/UDP, IPv4/IPv6. Paket değiştirme yok.");
             Console.WriteLine("Discord'u şimdi açabilir veya yeni bağlantı oluşturabilirsin. Çıkış: Ctrl+C.");
             if (experimental) diagnostics = NetworkDiagnostics.Run();
             while (!stopping)
@@ -115,6 +128,7 @@ internal static class Program
             Console.CancelKeyPress -= Cancel;
             lock (HandleLock) { Native.WinDivertClose(handle); handle = new IntPtr(-1); }
             if (engine != null) engine.Dispose();
+            if (dnsRedirector != null) dnsRedirector.Dispose();
             if (diagnostics != null) diagnostics.Wait(7500);
         }
     }

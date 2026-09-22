@@ -39,7 +39,7 @@ public sealed class ObserverWindow : Form
 
     public ObserverWindow()
     {
-        Text = "Discord DPI — Deneysel Motor";
+        Text = "Discord DPI — DNS + TLS Denemesi";
         ClientSize = new Size(960, 650);
         MinimumSize = new Size(976, 689);
         StartPosition = FormStartPosition.CenterScreen;
@@ -50,12 +50,12 @@ public sealed class ObserverWindow : Form
 
         var title = LabelAt("Discord DPI", 28, 23, 450, 42);
         title.Font = new Font("Segoe UI", 23, FontStyle.Bold);
-        LabelAt("BAĞLANTI GÖZLEMCİSİ  /  DENEYSEL TLS MOTORU", 30, 70, 800, 26).ForeColor = Color.FromArgb(153, 167, 195);
+        LabelAt("BAĞLANTI GÖZLEMCİSİ  /  DISCORD DNS + TLS MOTORU", 30, 70, 800, 26).ForeColor = Color.FromArgb(153, 167, 195);
         discord.SetBounds(30, 116, 650, 28);
         discord.Font = new Font("Segoe UI", 12, FontStyle.Bold);
         state.SetBounds(30, 151, 880, 45);
         state.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        state.Text = "Hazır. İzlemeyi başlatınca yeni Discord bağlantıları burada görünecek.";
+        state.Text = "Motor denemesinde Discord alan adları Cloudflare DoH ile çözülür; genel DNS ayarı değişmez.";
         Controls.AddRange(new Control[] { discord, state });
 
         ConfigureButton(start, "İzlemeyi başlat", 30, 209, 195);
@@ -150,7 +150,7 @@ public sealed class ObserverWindow : Form
             session = new SessionLog(Path.Combine(Path.GetDirectoryName(typeof(ObserverWindow).Assembly.Location), "logs"));
             string oldLine;
             while (pending.TryDequeue(out oldLine)) { }
-            session.Write("Discord DPI diagnostic build 2026-09-22. Mode=" + (experimental ? "engine" : "observe") + " Started=" + DateTime.Now.ToString("O"));
+            session.Write("Discord DPI build 2026-09-22-dns-v1. Mode=" + (experimental ? "engine" : "observe") + " Started=" + DateTime.Now.ToString("O"));
             session.Write(discord.Text);
             logStatus.Text = "Kayıt: logs\\" + Path.GetFileName(session.FilePath) + "  •  yalnızca bu bilgisayarda";
             var info = new ProcessStartInfo(Path.Combine(Path.GetDirectoryName(typeof(ObserverWindow).Assembly.Location), "DiscordDpi.exe"), experimental ? "--engine" : "--observe");

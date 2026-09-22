@@ -8,6 +8,10 @@ Bize ait Discord bağlantı motoru geliştirme projesi. Hazır bir DPI uygulamas
 
 **Motoru dene:** Tanınan Discord işlemlerinin yeni TCP/443 bağlantılarında ilk veri paketini inceler. Tam TLS ClientHello içinde izin verilen Discord alan adı bulunursa SNI alanını iki TCP parçasına böler. Veri baytları korunur, sıra numarası ve checksum yeniden hesaplanır. Bu bağımsız ve deneysel bir yöntemdir; internet sağlayıcısında işe yaradığı henüz doğrulanmamıştır.
 
+DNS adımı: Giden UDP/53 sorguları incelenir; sadece Discord alan adı listesindeki sorular Cloudflare'ın `https://1.1.1.1/dns-query` HTTPS uç noktasına iletilir. TLS sertifikası standart olarak doğrulanır. Yanıtın işlem kimliği, soru adı ve kayıt türü eşleşmelidir. Geçerli yanıt IPv4/IPv6 UDP paketi olarak istemciye döndürülür. Bu seçim **işleme değil alan adına** bağlıdır: tarayıcı veya Windows DNS hizmetinden gelen Discord sorguları da kapsamdadır. Diğer alan adları özgün çözümleyiciye iletilir. Windows DNS sunucu ayarı veya hosts dosyası değiştirilmez; işletim sistemi normal DNS yanıtlarını önbelleğe alabilir.
+
+Cloudflare bu Discord DNS sorgularını ve istemcinin dış IP adresini görebilir. Yerel tanılama dosyaları gönderilmez. Uç nokta ulaşılamazsa, 4 saniyelik zaman aşımında veya kapasite dolduğunda özgün sorgu yeniden normal çözümleyiciye iletilir. Bu geri dönüş Discord için eski DNS hatasının devam etmesine yol açabilir; logda görünür. Aynı anda en çok 16 DoH isteği yapılır.
+
 Her iki modda da Windows DNS, proxy veya otomatik başlangıç ayarları değiştirilmez.
 
 WinDivert FLOW katmanı `SNIFF | RECV_ONLY` bayraklarıyla kullanılır. Program başlamadan kurulmuş bağlantılar gösterilmez; gözlemciyi başlattıktan sonra Discord'da yeni bir bağlantı oluşturun.
@@ -37,6 +41,9 @@ Windows x64 ve .NET Framework 4.x gerekir. Proje klasöründe PowerShell:
 .\setup-windivert.ps1
 .\bin\DiscordDpi.exe --native-check
 .\bin\DiscordDpi.exe --packet-test
+.\bin\DiscordDpi.exe --dns-test
+# Sürücü açmadan gerçek DoH çözümleyicisini kontrol et:
+.\bin\DiscordDpi.exe --doh-check
 ```
 
 `setup-windivert.ps1` sürücüyü resmi WinDivert dağıtımından indirir ve sabit SHA-256 özetiyle doğrular. Başka bir uygulamanın sürücü dosyalarını kopyalamaz.
@@ -60,9 +67,9 @@ Açık olan eski arayüzün dosyalarını değiştirmeden derlemek için iki bet
 - Kimliği okunamayan veya kapanmış işlemler atlanır. PID yeniden kullanımını elemek için olay ve işlem başlangıç zamanları karşılaştırılır; bu gözlem kodu henüz üretim düzeyinde bir güvenlik sınırı değildir.
 - Tanınan Discord işlemlerinin bağlantı bilgileri ve programın tanılama sonuçları ekrana/yerel tanılama kaydına yazılır. Paket içerikleri tutulmaz.
 - Canlı gözlem yönetici izni ister; derleme, işlem kontrolü ve öz test istemez.
-- Paket yakalama tüm tarayıcı trafiğine uygulanmaz. Her ağ filtresi tanınmış bir Discord bağlantısının kaynak/hedef IP ve portlarına özeldir; bağlantı kimliği işlem katmanında, alan adı TLS katmanında kontrol edilir.
+- TLS paket filtresi tanınmış bir Discord bağlantısının kaynak/hedef IP ve portlarına özeldir. DNS filtresi ise UDP/53 sorgularını alan adı ayrımı için yakalar; yalnızca Discord sorularını değiştirir. Diğer DNS paketleri kısa süreli yakalamadan sonra özgün hâliyle iletilir.
 - Aynı anda en fazla 32 kısa ömürlü yakalayıcı açılır. İlk veriden sonra veya 8 saniye sonunda yakalama sonlandırılır; durdurmada kuyruktaki paketler geri gönderildikten sonra handle kapanır. Gönderim hataları TCP yeniden iletimi gerektirebilir.
-- İlk veri paketi FLOW olayı işlenmeden geçerse kaçabilir. Parçalı ClientHello, ECH ile gizli SNI, QUIC, UDP, IP parçaları, IPv6 uzantı başlıkları ve DNS engelleri bu sürümde çözülmez. İlk veri denemesinden sonra yeniden iletimlere müdahale edilmez.
+- İlk veri paketi FLOW olayı işlenmeden geçerse kaçabilir. Parçalı ClientHello, ECH ile gizli SNI, QUIC, ses UDP trafiği, IP parçaları ve IPv6 uzantı başlıkları işlenmez. İlk veri denemesinden sonra yeniden iletimlere müdahale edilmez. DNS çözümü yalnızca standart UDP sorguları içindir; TCP DNS, uygulamanın kendi DoH'u, loopback resolver, sıkıştırılmış/çok sorulu DNS ve 1232 bayttan büyük DoH yanıtları kapsam dışıdır.
 - Domain kapsamı: discord.com, discord.gg, discordapp.com, discordapp.net, discord.media, discordcdn.com ve bunların alt alan adları.
 - Program başlarken başka bir DPI uygulamasını tespit etmek her çakışmayı önleyemez. Deneysel test sırasında başka motor başlatmayın.
 
@@ -79,6 +86,10 @@ PID çalışan programın kimliğidir. Yerel IP/port, uzak IP/port ve TCP/UDP bi
 ## Doğrulama
 
 Gözlem modunda kullanıcının sesli kanaldan çıkıp tekrar girmesiyle bağlantı olayları görüldü. Deneysel motor için derleme, 10 işlem/bellek düzeni testi, 452 paket doğrulaması ve 5000 bozuk/kısmi girdi denemesi geçti. İlk kullanıcı denemesinde Discord'a giriş sağlanamadı; o denemede paket işleme satırları kaydedilmediğinden neden henüz belirlenemedi. Tanılama kayıtları bu ayrımı yapabilmek için eklendi. Canlı paket gönderme ve kapatma sırasında kuyruk boşaltma ayrıca doğrulanmalıdır.
+
+İkinci kullanıcı denemesinin kaydı DNS hatalarını gösterdi: iki Discord alan adı çözülemedi; discord.com için dönen adrese TCP erişimi kurulamadı. TLS işleme satırı oluşmadı. Bu bulgu üzerine seçici DoH eklendi. 140 DNS doğrulaması ve 3000 bozuk girdi testi geçti; üç Discord alan adı resmi DoH uç noktasından başarılı yanıt aldı. Son kontrol sırasında kullanıcının GoodbyeDPI'ı yeniden açık olduğundan bu, DoH'un o kapalıyken erişilebilir olduğunu kanıtlamaz. Canlı DNS yanıt enjeksiyonu ve Discord girişi sonraki kullanıcı denemesinde doğrulanacaktır.
+
+DoH protokolü: https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/make-api-requests/dns-wireformat/
 
 WinDivert belgeleri: https://reqrypt.org/windivert-doc.html
 
