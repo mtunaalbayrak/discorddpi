@@ -37,6 +37,8 @@ public sealed class ObserverWindow : Form
     private readonly ContextMenuStrip trayMenu = new ContextMenuStrip();
     private int eventCount;
     private int ticks;
+    private DateTime lastHealth = DateTime.MinValue;
+    private long outputLines;
     private SessionLog session;
     private readonly Label logStatus = new Label();
 
@@ -180,7 +182,9 @@ public sealed class ObserverWindow : Form
             session = new SessionLog(Path.Combine(Path.GetDirectoryName(typeof(ObserverWindow).Assembly.Location), "logs"));
             string oldLine;
             while (pending.TryDequeue(out oldLine)) { }
-            session.Write("Discord DPI build 2026-09-22-dns-v1. Mode=" + (experimental ? "engine" : "observe") + " Started=" + DateTime.Now.ToString("O"));
+            session.Write("Discord DPI v0.1.2. Mode=" + (experimental ? "engine" : "observe") + " Started=" + DateTime.Now.ToString("O"));
+            System.Threading.Interlocked.Exchange(ref outputLines, 0);
+            lastHealth = DateTime.UtcNow;
             session.Write(discord.Text);
             logStatus.Text = "Kayıt: logs\\" + Path.GetFileName(session.FilePath) + "  •  yalnızca bu bilgisayarda";
             var info = new ProcessStartInfo(Path.Combine(Path.GetDirectoryName(typeof(ObserverWindow).Assembly.Location), "DiscordDpi.exe"), experimental ? "--engine" : "--observe");
@@ -210,11 +214,19 @@ public sealed class ObserverWindow : Form
     private void Enqueue(string line)
     {
         if (line == null) return;
+        System.Threading.Interlocked.Increment(ref outputLines);
         if (session != null) session.Write(line);
         if (pending.Count < 1000) pending.Enqueue(line);
     }
     private void Drain()
     {
+        if (worker != null && session != null && (DateTime.UtcNow - lastHealth).TotalSeconds >= 15)
+        {
+            lastHealth = DateTime.UtcNow;
+            session.Write(DateTime.Now.ToString("HH:mm:ss") + " DURUM: arayüz açık; motor=" +
+                (worker.HasExited ? "sonlandı" : "işlem çalışıyor") + "; alınan satır=" +
+                System.Threading.Interlocked.Read(ref outputLines) + "; " + discord.Text);
+        }
         if (session != null && session.Error != null) logStatus.Text = "Kayıt yazılamadı: " + session.Error;
         string line;
         bool changed = false;

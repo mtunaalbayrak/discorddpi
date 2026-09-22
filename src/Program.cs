@@ -100,7 +100,8 @@ internal static class Program
             if (experimental) dnsRedirector = new DiscordDns(true);
             Console.WriteLine(experimental ? "Deneysel motor açık — Discord DNS + TLS deneniyor. Erişim henüz doğrulanmadı." : "Yeni Discord bağlantıları gösteriliyor. TCP/UDP, IPv4/IPv6. Paket değiştirme yok.");
             Console.WriteLine("Discord'u şimdi açabilir veya yeni bağlantı oluşturabilirsin. Çıkış: Ctrl+C.");
-            if (experimental) diagnostics = NetworkDiagnostics.Run();
+            if (experimental) diagnostics = Task.Run(() => NetworkDiagnostics.Run());
+            Console.WriteLine("Motor bağlantı olaylarını dinliyor.");
             while (!stopping)
             {
                 Native.Address address;

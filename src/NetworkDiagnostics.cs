@@ -20,7 +20,9 @@ internal static class NetworkDiagnostics
     {
         try
         {
-            var lookup = Dns.GetHostAddressesAsync(host);
+            Log("DNS SORGUSU: " + host);
+            // Resolver çağrısının senkron başlangıcı da zaman aşımının kapsamına girer.
+            var lookup = Task.Run(() => Dns.GetHostAddressesAsync(host));
             if (await Task.WhenAny(lookup, Task.Delay(4000)) != lookup)
             {
                 ObserveFailure(lookup);
