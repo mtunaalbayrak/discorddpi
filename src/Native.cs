@@ -32,6 +32,15 @@ internal static class Native
     [DllImport("WinDivert.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool WinDivertRecv(IntPtr handle, IntPtr packet, uint length, out uint received, out Address address);
+    [DllImport("WinDivert.dll", EntryPoint = "WinDivertRecv", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool ReceivePacket(IntPtr handle, [Out] byte[] packet, uint length, out uint received, out Address address);
+    [DllImport("WinDivert.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool WinDivertSend(IntPtr handle, byte[] packet, uint length, out uint sent, ref Address address);
+    [DllImport("WinDivert.dll", CallingConvention = CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool WinDivertHelperCalcChecksums([In, Out] byte[] packet, uint length, ref Address address, ulong flags);
     [DllImport("WinDivert.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool WinDivertShutdown(IntPtr handle, int how);
@@ -44,6 +53,9 @@ internal static class Native
     [DllImport("WinDivert.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool WinDivertHelperCompileFilter(string filter, int layer, IntPtr output, uint length, out IntPtr error, out uint position);
+    [DllImport("WinDivert.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool WinDivertHelperEvalFilter(string filter, byte[] packet, uint length, ref Address address);
     internal static string Format(uint a, uint b, uint c, uint d)
     {
         var buffer = new StringBuilder(64);

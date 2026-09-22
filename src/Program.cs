@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading;
 
 internal static class Program
 {
@@ -19,10 +20,21 @@ internal static class Program
         {
             if (args.Length == 1 && args[0] == "--self-test") return SelfTest();
             if (args.Length == 1 && args[0] == "--native-check") return NativeCheck();
-            if (args.Length == 1 && args[0] == "--observe") return Observe();
+            if (args.Length == 1 && args[0] == "--observe") return Observe(false);
+            if (args.Length == 1 && args[0] == "--engine")
+            {
+                bool created;
+                using (var singleEngine = new Mutex(true, @"Local\DiscordDpi.ExperimentalEngine", out created))
+                {
+                    if (!created) throw new InvalidOperationException("Deneysel motor zaten çalışıyor. Önce diğer pencereyi durdur.");
+                    try { return Observe(true); }
+                    finally { singleEngine.ReleaseMutex(); }
+                }
+            }
+            if (args.Length == 1 && args[0] == "--packet-test") return PacketTests.Run();
             if (args.Length > 0 && (args.Length != 1 || args[0] != "--check"))
             {
-                Console.Error.WriteLine("Kullanım: DiscordDpi.exe [--check | --observe | --self-test | --native-check]");
+                Console.Error.WriteLine("Kullanım: DiscordDpi.exe [--check | --observe | --engine | --self-test | --native-check | --packet-test]");
                 return 2;
             }
             Check();
@@ -45,24 +57,33 @@ internal static class Program
                     { count++; Console.WriteLine("Tanındı: {0}, PID {1}", name, process.Id); }
                 }
         Console.WriteLine("Tanınan işlem: " + count);
-        Console.WriteLine("Bu kontrol sürücü açmaz ve trafiği değiştirmez. Henüz engel aşma yok.");
+        Console.WriteLine("Bu kontrol sürücü açmaz ve trafiği değiştirmez. Deneysel motor ayrı başlatılır.");
         Console.WriteLine("Canlı gözlem: yönetici terminalinde DiscordDpi.exe --observe");
     }
-    private static int Observe()
+    private static int Observe(bool experimental)
     {
         using (var identity = WindowsIdentity.GetCurrent())
             if (!new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator))
                 throw new InvalidOperationException("Gözlem için terminali yönetici olarak açmalısın.");
+        if (experimental)
+        {
+            var other = Process.GetProcessesByName("goodbyedpi");
+            bool conflict = other.Length > 0;
+            foreach (var process in other) process.Dispose();
+            if (conflict) throw new InvalidOperationException("Deneysel test için önce GoodbyeDPI'ı durdur. Programımız onu otomatik kapatmaz.");
+        }
         handle = Native.WinDivertOpen(Filter, Native.FlowLayer, 0, Native.SniffReceiveOnly);
         if (handle == new IntPtr(-1)) throw new Win32Exception(Marshal.GetLastWin32Error());
         Console.CancelKeyPress += Cancel;
         if (Console.IsInputRedirected) Task.Run(delegate
         {
-            if (Console.ReadLine() == "stop") StopCapture();
+            string command = Console.ReadLine();
+            if (command == "stop" || command == null) StopCapture();
         });
+        var engine = experimental ? new ScopedEngine() : null;
         try
         {
-            Console.WriteLine("Yeni Discord bağlantıları gösteriliyor. TCP/UDP, IPv4/IPv6. Paket değiştirme yok.");
+            Console.WriteLine(experimental ? "Deneysel motor açık — Discord TLS bölme deneniyor. Erişim henüz doğrulanmadı." : "Yeni Discord bağlantıları gösteriliyor. TCP/UDP, IPv4/IPv6. Paket değiştirme yok.");
             Console.WriteLine("Discord'u şimdi açabilir veya yeni bağlantı oluşturabilirsin. Çıkış: Ctrl+C.");
             while (!stopping)
             {
@@ -74,8 +95,10 @@ internal static class Program
                     if (stopping && error == 232) break;
                     throw new Win32Exception(error);
                 }
+                if (engine != null && address.Event == 2) engine.OnFlow(address);
                 string name;
                 if (!DiscordProcess.TryIdentify(address.ProcessId, address.Timestamp, out name)) continue;
+                if (engine != null && address.Event == 1) engine.OnFlow(address);
                 Console.WriteLine("{0:HH:mm:ss} {1} PID={2} {3} {4} [{5}]:{6} -> [{7}]:{8}",
                     DateTime.Now, name, address.ProcessId, address.Event == 1 ? "AÇILDI" : "KAPANDI",
                     address.Protocol == 6 ? "TCP" : "UDP",
@@ -88,6 +111,7 @@ internal static class Program
         {
             Console.CancelKeyPress -= Cancel;
             lock (HandleLock) { Native.WinDivertClose(handle); handle = new IntPtr(-1); }
+            if (engine != null) engine.Dispose();
         }
     }
     private static void Cancel(object sender, ConsoleCancelEventArgs args)

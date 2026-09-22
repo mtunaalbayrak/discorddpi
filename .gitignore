@@ -2,6 +2,7 @@
 *.exe
 *.pdb
 bin/
+bin-engine/
 obj/
 .vs/
 *.user

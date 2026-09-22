@@ -25,6 +25,7 @@ public sealed class ObserverWindow : Form
     private readonly Label count = new Label();
     private readonly Button start = new Button();
     private readonly Button stop = new Button();
+    private readonly Button engine = new Button();
     private readonly ListView events = new ListView();
     private readonly Timer timer = new Timer();
     private readonly ConcurrentQueue<string> pending = new ConcurrentQueue<string>();
@@ -36,9 +37,9 @@ public sealed class ObserverWindow : Form
 
     public ObserverWindow()
     {
-        Text = "Discord DPI — Bağlantı Gözlemcisi";
+        Text = "Discord DPI — Deneysel Motor";
         ClientSize = new Size(960, 650);
-        MinimumSize = new Size(850, 600);
+        MinimumSize = new Size(976, 689);
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.Dpi;
         BackColor = Color.FromArgb(18, 22, 32);
@@ -47,7 +48,7 @@ public sealed class ObserverWindow : Form
 
         var title = LabelAt("Discord DPI", 28, 23, 450, 42);
         title.Font = new Font("Segoe UI", 23, FontStyle.Bold);
-        LabelAt("BAĞLANTI GÖZLEMCİSİ  /  İLK AŞAMA", 30, 70, 600, 26).ForeColor = Color.FromArgb(153, 167, 195);
+        LabelAt("BAĞLANTI GÖZLEMCİSİ  /  DENEYSEL TLS MOTORU", 30, 70, 800, 26).ForeColor = Color.FromArgb(153, 167, 195);
         discord.SetBounds(30, 116, 650, 28);
         discord.Font = new Font("Segoe UI", 12, FontStyle.Bold);
         state.SetBounds(30, 151, 880, 45);
@@ -57,14 +58,17 @@ public sealed class ObserverWindow : Form
 
         ConfigureButton(start, "İzlemeyi başlat", 30, 209, 195);
         start.BackColor = Color.FromArgb(88, 101, 242);
-        start.Click += delegate { StartObserver(); };
-        ConfigureButton(stop, "Durdur", 239, 209, 130);
+        start.Click += delegate { StartObserver(false); };
+        ConfigureButton(engine, "Motoru dene", 239, 209, 165);
+        engine.BackColor = Color.FromArgb(108, 65, 154);
+        engine.Click += delegate { StartObserver(true); };
+        ConfigureButton(stop, "Durdur", 418, 209, 110);
         stop.Enabled = false;
         stop.Click += async delegate { await StopObserver(); };
         var clear = new Button();
-        ConfigureButton(clear, "Listeyi temizle", 383, 209, 165);
+        ConfigureButton(clear, "Listeyi temizle", 542, 209, 150);
         clear.Click += delegate { events.Items.Clear(); eventCount = 0; UpdateCount(); };
-        count.SetBounds(575, 219, 350, 25);
+        count.SetBounds(705, 219, 220, 25);
         count.TextAlign = ContentAlignment.MiddleRight;
         count.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         Controls.Add(count);
@@ -81,9 +85,9 @@ public sealed class ObserverWindow : Form
         events.Columns.Add("Saat", 88);
         events.Columns.Add("Discord bağlantı olayı", 780);
         Controls.Add(events);
-        var hint = LabelAt("İzlemeyi başlat, ardından Discord’da bir sesli kanala gir veya yeni bağlantı oluştur.\nÖnceden açık bağlantılar ve her mesaj ayrı bir satır olarak görünmez.", 30, 551, 900, 46);
+        var hint = LabelAt("Motor testi: GoodbyeDPI’ı durdur → Motoru dene → Discord’u tamamen kapatıp aç.\nBÖLÜNDÜ satırı paket işlemini gösterir; mesaj, ses ve yayın erişimini ayrıca denemeliyiz.", 30, 551, 900, 46);
         hint.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        var note = LabelAt("Yalnızca gözlem • Paket değiştirme ve engel aşma henüz yok • GoodbyeDPI açık kalabilir", 30, 609, 900, 25);
+        var note = LabelAt("Gözlemde GoodbyeDPI açık kalabilir • Motor yalnızca seçili Discord TLS bağlantılarını işler", 30, 609, 900, 25);
         note.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
         note.ForeColor = Color.FromArgb(153, 167, 195);
 
@@ -133,12 +137,12 @@ public sealed class ObserverWindow : Form
         discord.Text = found > 0 ? "● Discord bulundu — " + found + " işlem" : "○ Discord bekleniyor — uygulamayı açabilirsin";
         discord.ForeColor = found > 0 ? Color.FromArgb(92, 215, 166) : Color.FromArgb(242, 193, 102);
     }
-    private void StartObserver()
+    private void StartObserver(bool experimental)
     {
         if (worker != null || stopping) return;
         try
         {
-            var info = new ProcessStartInfo(Path.Combine(Path.GetDirectoryName(typeof(ObserverWindow).Assembly.Location), "DiscordDpi.exe"), "--observe");
+            var info = new ProcessStartInfo(Path.Combine(Path.GetDirectoryName(typeof(ObserverWindow).Assembly.Location), "DiscordDpi.exe"), experimental ? "--engine" : "--observe");
             info.UseShellExecute = false;
             info.CreateNoWindow = true;
             info.RedirectStandardOutput = info.RedirectStandardError = info.RedirectStandardInput = true;
@@ -150,8 +154,9 @@ public sealed class ObserverWindow : Form
             worker.BeginOutputReadLine();
             worker.BeginErrorReadLine();
             start.Enabled = false;
+            engine.Enabled = false;
             stop.Enabled = true;
-            state.Text = "Gözlemci başlatılıyor…";
+            state.Text = experimental ? "Deneysel motor başlatılıyor…" : "Gözlemci başlatılıyor…";
         }
         catch (Exception ex)
         {
@@ -171,6 +176,7 @@ public sealed class ObserverWindow : Form
         {
             if (line.StartsWith("HATA:")) state.Text = line;
             else if (line.StartsWith("Yeni Discord")) state.Text = "İzleme açık — yeni Discord bağlantıları bekleniyor.";
+            else if (line.StartsWith("Deneysel motor")) state.Text = line;
             else if (line.Length > 8 && line[2] == ':' && line[5] == ':')
             {
                 events.Items.Add(new ListViewItem(new[] { line.Substring(0, 8), line.Substring(9) }));
@@ -185,7 +191,7 @@ public sealed class ObserverWindow : Form
             worker.WaitForExit();
             if (!state.Text.StartsWith("HATA:")) state.Text = "Gözlemci sonlandı (kod " + worker.ExitCode + ").";
             worker.Dispose(); worker = null;
-            start.Enabled = true; stop.Enabled = false;
+            start.Enabled = engine.Enabled = true; stop.Enabled = false;
         }
     }
     private void UpdateCount() { count.Text = eventCount + " olay  •  son 500 satır"; }
@@ -193,7 +199,7 @@ public sealed class ObserverWindow : Form
     {
         if (worker == null || stopping) return;
         stopping = true;
-        stop.Enabled = start.Enabled = false;
+        stop.Enabled = start.Enabled = engine.Enabled = false;
         var active = worker;
         try
         {
@@ -203,14 +209,10 @@ public sealed class ObserverWindow : Form
                 catch (IOException) { }
                 await Task.Run(delegate
                 {
-                    if (!active.WaitForExit(3000))
-                    {
-                        try { active.Kill(); } catch (InvalidOperationException) { }
-                        active.WaitForExit();
-                    }
+                    if (!active.WaitForExit(10000)) throw new TimeoutException("Motor hâlâ kapanıyor. Kuyruktaki paketlerin boşalması bekleniyor; tekrar Durdur'a basabilirsin.");
                 });
             }
-            state.Text = "İzleme durduruldu. Bağlantı ayarları değiştirilmedi.";
+            state.Text = "Durduruldu. Sistem DNS ve bağlantı ayarları değiştirilmedi.";
         }
         catch (Exception ex) { state.Text = "Durdurma hatası: " + ex.Message; }
         finally
@@ -218,6 +220,7 @@ public sealed class ObserverWindow : Form
             if (active.HasExited) { active.Dispose(); worker = null; }
             stopping = false;
             start.Enabled = worker == null;
+            engine.Enabled = worker == null;
             stop.Enabled = worker != null;
             if (closing && worker == null) BeginInvoke(new Action(Close));
             else if (closing && worker != null) closing = false;

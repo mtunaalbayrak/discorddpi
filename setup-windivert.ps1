@@ -1,8 +1,9 @@
+param([string]$OutputDirectory = 'bin')
 $ErrorActionPreference = 'Stop'
 $downloadUrl = 'https://github.com/basil00/WinDivert/releases/download/v2.2.2/WinDivert-2.2.2-A.zip'
 $expectedHash = '63CB41763BB4B20F600B6DE04E991A9C2BE73279E317D4D82F237B150C5F3F15'
 $cachePath = Join-Path $PSScriptRoot 'work\windivert'
-$binaryPath = Join-Path $PSScriptRoot 'bin'
+$binaryPath = Join-Path $PSScriptRoot $OutputDirectory
 New-Item -ItemType Directory -Path $cachePath,$binaryPath -Force | Out-Null
 $archivePath = Join-Path $cachePath 'WinDivert.zip'
 if (!(Test-Path -LiteralPath $archivePath)) {
