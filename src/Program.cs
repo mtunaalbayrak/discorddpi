@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
+using System.Threading.Tasks;
 
 internal static class Program
 {
@@ -55,6 +56,10 @@ internal static class Program
         handle = Native.WinDivertOpen(Filter, Native.FlowLayer, 0, Native.SniffReceiveOnly);
         if (handle == new IntPtr(-1)) throw new Win32Exception(Marshal.GetLastWin32Error());
         Console.CancelKeyPress += Cancel;
+        if (Console.IsInputRedirected) Task.Run(delegate
+        {
+            if (Console.ReadLine() == "stop") StopCapture();
+        });
         try
         {
             Console.WriteLine("Yeni Discord bağlantıları gösteriliyor. TCP/UDP, IPv4/IPv6. Paket değiştirme yok.");
@@ -88,6 +93,10 @@ internal static class Program
     private static void Cancel(object sender, ConsoleCancelEventArgs args)
     {
         args.Cancel = true;
+        StopCapture();
+    }
+    private static void StopCapture()
+    {
         stopping = true;
         lock (HandleLock) if (handle != new IntPtr(-1)) Native.WinDivertShutdown(handle, 1);
     }

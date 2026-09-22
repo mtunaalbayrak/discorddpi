@@ -8,7 +8,13 @@ Discord işlemlerini tanır ve yeni TCP/UDP bağlantı olaylarını gösterir. *
 
 WinDivert FLOW katmanı `SNIFF | RECV_ONLY` bayraklarıyla kullanılır. Program başlamadan kurulmuş bağlantılar gösterilmez; gözlemciyi başlattıktan sonra Discord'da yeni bir bağlantı oluşturun.
 
-## Derleme
+## Masaüstü ekranı
+
+`bin/DiscordDpiDesktop.exe` dosyasını açıp Windows yönetici iznini onaylayın. Pencere Discord işlem sayısını gösterir. **İzlemeyi başlat** yeni bağlantı olaylarını listeler; **Durdur** yalnızca kendi gözlemci sürecimizi sonlandırır. Pencereyi kapatmak da gözlemi durdurur. Liste en son 500 olayı tutar, diske trafik kaydı yazmaz.
+
+GoodbyeDPI bu gözlem aşamasında açık kalabilir. Engel aşma testine henüz geçilmemiştir. Her mesaj bir bağlantı oluşturmaz; yeni olay görmek için izlemeyi başlattıktan sonra bir sesli kanala girilebilir. Önceden kurulmuş bağlantılar listelenmez.
+
+## Kaynaktan derleme
 
 Windows x64 ve .NET Framework 4.x gerekir. Proje klasöründe PowerShell:
 
@@ -50,7 +56,7 @@ Sonraki aşama: bu tanımayı paket katmanına taşımak ve seçilen bağlantıl
 
 ## Doğrulama
 
-Derleme, işlem tanıma, 10 öz test ve sürücüyü açmadan DLL/filtre/IP dönüşümü kontrolü yapıldı. Canlı bağlantı gözlemi ve engel aşma henüz doğrulanmadı.
+Derleme, işlem tanıma, 10 öz test ve sürücüyü açmadan DLL/filtre/IP dönüşümü kontrolü yapıldı. Masaüstü ekranı görsel olarak kontrol edildi; yönetici izni olmadan gözlem başlatıldığında hata gösterip yeniden başlatmaya izin verdiği doğrulandı. Yönetici izniyle canlı bağlantı gözlemi ve engel aşma henüz doğrulanmadı.
 
 WinDivert belgeleri: https://reqrypt.org/windivert-doc.html
 
