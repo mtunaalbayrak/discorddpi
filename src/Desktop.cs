@@ -99,7 +99,13 @@ public sealed class ObserverWindow : Form
         Controls.Add(logStatus);
 
         timer.Interval = 250;
-        timer.Tick += delegate { Drain(); if (++ticks % 8 == 0) RefreshDiscord(); };
+        timer.Tick += delegate { Drain(); if (Visible && ++ticks % 8 == 0) RefreshDiscord(); };
+        VisibleChanged += delegate
+        {
+            // Gizliyken yalnız işçi durumu ve sınırlı olay kuyruğu takip edilir.
+            timer.Interval = Visible ? 250 : 1000;
+            if (Visible) { RefreshDiscord(); Drain(); }
+        };
         RefreshDiscord();
         UpdateCount();
         timer.Start();
@@ -211,6 +217,10 @@ public sealed class ObserverWindow : Form
     {
         if (session != null && session.Error != null) logStatus.Text = "Kayıt yazılamadı: " + session.Error;
         string line;
+        bool changed = false;
+        events.BeginUpdate();
+        try
+        {
         for (int i = 0; i < 100 && pending.TryDequeue(out line); i++)
         {
             if (line.StartsWith("HATA:")) state.Text = line;
@@ -221,9 +231,15 @@ public sealed class ObserverWindow : Form
                 events.Items.Add(new ListViewItem(new[] { line.Substring(0, 8), line.Substring(9) }));
                 eventCount++;
                 if (events.Items.Count > 500) events.Items.RemoveAt(0);
-                events.EnsureVisible(events.Items.Count - 1);
-                UpdateCount();
+                changed = true;
             }
+        }
+        }
+        finally { events.EndUpdate(); }
+        if (changed)
+        {
+            if (Visible && events.Items.Count > 0) events.EnsureVisible(events.Items.Count - 1);
+            UpdateCount();
         }
         if (worker != null && !stopping && worker.HasExited)
         {
