@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Diagnostics;
 
 // Global paket yakalayıcı açılmaz: her handle tek bir Discord 5-tuple'ını seçer.
 internal sealed class ScopedEngine : IDisposable
@@ -23,10 +24,16 @@ internal sealed class ScopedEngine : IDisposable
             return;
         }
         var expired = new List<ulong>();
-        foreach (var entry in connections) if (entry.Value.Done) expired.Add(entry.Key);
+        int activeCount = 0;
+        foreach (var entry in connections)
+        {
+            if (!entry.Value.Done) activeCount++;
+            // CONNECT sonrası tamamlanan işi gecikmiş FLOW için yeniden açma.
+            else if (entry.Value.RetentionExpired) expired.Add(entry.Key);
+        }
         foreach (ulong key in expired) connections.Remove(key);
         if (flow.Event != 1 || flow.Protocol != 6 || flow.RemotePort != 443 || flow.LocalPort == 0 || connections.ContainsKey(flow.Endpoint)) return;
-        if (connections.Count >= 32) { Log("SINIR: Yeni bağlantı değiştirilmeden geçiyor."); return; }
+        if (activeCount >= 32 || connections.Count >= 1024) { Log("SINIR: Yeni bağlantı değiştirilmeden geçiyor."); return; }
         string filter = MakeFilter(flow);
         if (filter == null) return;
         try
@@ -66,6 +73,8 @@ internal sealed class ScopedEngine : IDisposable
         private Timer deadline;
         private bool stop;
         private volatile bool done;
+        private readonly long created = Stopwatch.GetTimestamp();
+        internal bool RetentionExpired { get { return (Stopwatch.GetTimestamp() - created) / (double)Stopwatch.Frequency > 30; } }
         internal bool Done { get { return done; } }
         internal Connection(Native.Address flow, string filter)
         {
@@ -133,10 +142,11 @@ internal sealed class ScopedEngine : IDisposable
                         {
                             var firstAddress = address;
                             var secondAddress = address;
-                            bool a = Send(first, first.Length, ref firstAddress);
-                            bool b = a && Send(second, second.Length, ref secondAddress);
+                            bool reverse = string.Equals(host, "updates.discord.com", StringComparison.OrdinalIgnoreCase);
+                            bool a = reverse ? Send(second, second.Length, ref secondAddress) : Send(first, first.Length, ref firstAddress);
+                            bool b = a && (reverse ? Send(first, first.Length, ref firstAddress) : Send(second, second.Length, ref secondAddress));
                             sent = a && b;
-                            Log(sent ? "BÖLÜNDÜ: " + host + " (erişim sonucu ayrıca test edilmeli)" : "GÖNDERİM HATASI: Özgün paket tekrar gönderiliyor.");
+                            Log(sent ? "BÖLÜNDÜ: " + host + (reverse ? " sıra=2,1" : " sıra=1,2") + " (erişim sonucu ayrıca test edilmeli)" : "GÖNDERİM HATASI: Özgün paket tekrar gönderiliyor.");
                         }
                         else if (!attempted) Log("DEĞİŞMEDİ: Tam Discord ClientHello bulunamadı, port=" + owner.LocalPort);
                     }

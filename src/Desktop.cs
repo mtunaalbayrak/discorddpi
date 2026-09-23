@@ -182,7 +182,7 @@ public sealed class ObserverWindow : Form
             session = new SessionLog(Path.Combine(Path.GetDirectoryName(typeof(ObserverWindow).Assembly.Location), "logs"));
             string oldLine;
             while (pending.TryDequeue(out oldLine)) { }
-            session.Write("Discord DPI v0.1.3. Mode=" + (experimental ? "engine" : "observe") + " Started=" + DateTime.Now.ToString("O"));
+            session.Write("Discord DPI v0.1.4. Mode=" + (experimental ? "engine" : "observe") + " Started=" + DateTime.Now.ToString("O"));
             System.Threading.Interlocked.Exchange(ref outputLines, 0);
             lastHealth = DateTime.UtcNow;
             session.Write(discord.Text);
