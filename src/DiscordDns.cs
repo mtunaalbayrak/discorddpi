@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 internal sealed class DiscordDns : IDisposable
 {
-    internal const string Filter = "outbound and !loopback and !impostor and udp.DstPort == 53 and udp.PayloadLength >= 17";
+    internal static readonly string Filter = DnsCaptureFilter.Build();
     private readonly HttpClient client;
     private readonly CancellationTokenSource cancel = new CancellationTokenSource();
     private readonly SemaphoreSlim slots = new SemaphoreSlim(16);

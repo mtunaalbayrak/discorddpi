@@ -28,6 +28,30 @@ internal static class DnsTests
     {
         count = 0;
         foreach (bool ipv6 in new[] { false, true })
+        foreach (bool edns in new[] { false, true })
+        foreach (string domain in new[] { "discord.com", "discord.gg", "discordapp.com", "discordapp.net", "discord.media", "discordcdn.com" })
+        foreach (string prefix in new[] { "", "gateway.", "a.b.", "_service." })
+        foreach (int kind in new[] { 1, 28, 65 })
+        {
+            var q = DnsWire.Query(prefix + domain, kind);
+            if (edns)
+            {
+                int oldLength = q.Length;
+                Array.Resize(ref q, oldLength + 11);
+                q[11] = 1; q[oldLength + 2] = 41; q[oldLength + 3] = 4; q[oldLength + 4] = 208;
+            }
+            var p = Packet(ipv6, q);
+            var a = new Native.Address { Flags = (1u << 17) | (ipv6 ? 1u << 20 : 0) };
+            Check(Native.WinDivertHelperEvalFilter(DiscordDns.Filter, p, (uint)p.Length, ref a), "Discord DNS biçimi yakalanmalı");
+        }
+        foreach (bool ipv6 in new[] { false, true })
+        foreach (string domain in new[] { "google.com", "youtube.com", "example.net", "discord.com.evil.example", "evildiscord.com", "notdiscord.gg", "discordapp.net.example", "Discord.COM" })
+        {
+            var p = Packet(ipv6, DnsWire.Query(domain, 1));
+            var a = new Native.Address { Flags = (1u << 17) | (ipv6 ? 1u << 20 : 0) };
+            Check(!Native.WinDivertHelperEvalFilter(DiscordDns.Filter, p, (uint)p.Length, ref a), "Diğer veya desteklenmeyen sorgu uygulamaya alınmamalı: " + domain);
+        }
+        foreach (bool ipv6 in new[] { false, true })
         {
             byte[] query = DnsWire.Query("gateway.discord.gg", 28), extracted;
             byte[] packet = Packet(ipv6, query);

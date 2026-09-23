@@ -99,3 +99,8 @@ WinDivert belgeleri: https://reqrypt.org/windivert-doc.html
 # Arka planda kullanım
 
 Masaüstü arayüzünde X veya küçültme düğmesi pencereyi bildirim alanına gizler; çalışan motoru durdurmaz. Saatin yanındaki Discord DPI simgesine çift tıklayarak pencereyi açabilirsin. Simgenin sağ tık menüsündeki **Tamamen çık**, motoru durdurup uygulamayı kapatır. Simge Windows'un gizli simgeler okunun altında olabilir. Motor yine arayüzden başlatılır; Windows açılışında otomatik başlatma eklenmedi.
+
+## v0.1.5 trafik kapsamı
+DNS paketleri artık WinDivert filtresinde alan adı sonuna göre elenir. Küçük harfli Discord alan adları ve alt alanları için tek sorulu standart DNS veya seçeneksiz EDNS desteklenir. Büyük/karışık harfli, sıkıştırılmış ya da EDNS seçenekleri içeren sorgular özgün resolver'a gider; geniş yakalama yedeği yoktur. Bu biçimlerde Discord desteği azalabilir. Diğer uygulamaların desteklenen Discord alan adı sorguları yine kapsamdadır.
+Motor modunda pasif FLOW bildirimleri yalnız TCP/443'e daraltıldı. Diğer uygulamaların bu porttaki bağlantı metadata'sı kimlik kontrolü için görülebilir; bu bildirimler paketleri bekletmez. İzleme modu ayrı olarak geniş bağlantı gözlemini korur. Tüm trafiğin görünmez olduğu veya gecikmenin sıfır olduğu iddia edilmez. Genel DNS/proxy ayarları değişmez.
+444 DNS, 452 paket ve 10 temel doğrulama ile 8000 bozuk/kısmi girdi testi geçti. Canlı sürücü kuyruğu, tarayıcı gecikmesi ve farklı sağlayıcılarda uzun süreli kararlılık henüz ölçülmedi. v0.1.4'ün güncelleme bağlantısındaki deneysel ters gönderimi korunmuştur; modem bulgusundan dolayı bunun gerekli olduğu kanıtlanmış değildir.
